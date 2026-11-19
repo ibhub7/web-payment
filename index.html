@@ -20,7 +20,7 @@
     .plan-chip[data-active="true"] {
       border-color: #4f46e5 !important;
       background-color: #eef2ff !important;
-      box-shadow: 0 0 0 1px #4f46e5;
+      box-shadow: 0 0 0 1.5px #4f46e5;
     }
     .preset-chip[data-active="true"] {
       border-color: #4f46e5 !important;
@@ -42,20 +42,34 @@
     <span id="toastMsg">Notification</span>
   </div>
 
-  <!-- Main Payment Card -->
+  <!-- Main Card -->
   <main class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-8 space-y-5 text-center my-auto transition-all">
     
     <!-- Header -->
     <div>
+      <div class="flex items-center justify-between mb-1">
+        <a id="backBtn" href="?bot" class="hidden text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition flex items-center gap-1">
+          <i class="fa-solid fa-arrow-left"></i> All Bots
+        </a>
+        <div class="flex-1"></div>
+      </div>
       <h1 class="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight">
         <span id="pageIcon" class="mr-1"></span><span id="pageTitle" class="text-indigo-600">Quick Pay</span>
       </h1>
-      <p class="text-slate-400 text-xs sm:text-sm mt-1 flex items-center justify-center gap-1.5 font-medium">
+      <p id="pageSubtitle" class="text-slate-400 text-xs sm:text-sm mt-1 flex items-center justify-center gap-1.5 font-medium">
         <i class="fa fa-lock text-slate-400"></i> Protected Payment Page
       </p>
     </div>
 
-    <!-- Mode 1: Bot Plan Selector (Visible when on bot route) -->
+    <!-- MODE 1: BOT DIRECTORY / SELECTOR (Visible on ?bot route) -->
+    <div id="botMenuSection" class="hidden text-left space-y-2.5">
+      <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Choose Your Bot</label>
+      <div id="botDirectory" class="space-y-2.5">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+
+    <!-- MODE 2: SPECIFIC BOT PLAN SELECTOR (Visible on ?bot=name route) -->
     <div id="botSection" class="hidden text-left">
       <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Select Plan</label>
       <div id="planList" class="grid grid-cols-2 gap-2.5">
@@ -63,7 +77,7 @@
       </div>
     </div>
 
-    <!-- Mode 2: Amount Selector (Visible on Home Route) -->
+    <!-- MODE 3: AMOUNT SELECTOR (Visible on Home Route) -->
     <div id="homeSection" class="hidden text-left">
       <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Select or Enter Amount</label>
       <div id="presetList" class="grid grid-cols-5 gap-1.5 mb-2.5">
@@ -76,47 +90,52 @@
       </div>
     </div>
 
-    <!-- Dynamic Amount Indicator -->
-    <div class="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-100 text-indigo-700 px-4 py-1.5 rounded-full text-sm font-bold shadow-sm">
-      <span>Amount:</span>
-      <span id="displayAmount" class="text-lg">₹50</span>
-    </div>
-
-    <!-- QR Code Box -->
-    <div class="mx-auto w-48 h-48 sm:w-52 sm:h-52 rounded-2xl overflow-hidden border-4 border-indigo-100 shadow-md p-2 bg-white flex items-center justify-center select-none relative">
-      <div id="qr"></div>
-    </div>
-
-    <!-- UPI ID Pill & Copy Button -->
-    <div class="flex items-center justify-center space-x-2">
-      <div class="bg-slate-100 px-3.5 sm:px-4 py-2 rounded-xl text-slate-800 font-semibold text-xs sm:text-sm select-none border border-slate-200/60 truncate max-w-[280px]">
-        UPI: <span class="text-indigo-600 font-mono" id="upiID">paradox52693@okhdfcbank</span>
+    <!-- Payment Container (Hidden only when viewing the bot directory menu) -->
+    <div id="paymentContent" class="space-y-4">
+      
+      <!-- Dynamic Amount Indicator -->
+      <div class="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-100 text-indigo-700 px-4 py-1.5 rounded-full text-sm font-bold shadow-sm">
+        <span>Amount:</span>
+        <span id="displayAmount" class="text-lg">₹50</span>
       </div>
-      <button id="copyBtn" onclick="handleCopy()" title="Copy UPI ID" class="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl hover:bg-indigo-700 active:scale-95 transition shadow-sm">
-        <i class="fa-solid fa-copy"></i>
-      </button>
-    </div>
 
-    <!-- Action Buttons -->
-    <div class="grid grid-cols-1 gap-2.5 pt-1">
-      <button onclick="handlePay()" 
-        class="w-full bg-indigo-600 text-white font-semibold py-3 rounded-2xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98] transition flex items-center justify-center gap-2 text-sm sm:text-base">
-        <i class="fa-solid fa-bolt"></i> Pay with App
-      </button>
-      <button onclick="handleDownload()" 
-        class="w-full border border-indigo-600 text-indigo-600 font-semibold py-2.5 rounded-2xl hover:bg-indigo-50 active:scale-[0.98] transition flex items-center justify-center gap-2 text-sm sm:text-base">
-        <i class="fa fa-download"></i> Download QR
-      </button>
-    </div>
-
-    <!-- Support / Screenshot Proof Section -->
-    <div class="pt-4 border-t border-slate-100">
-      <p class="text-xs font-semibold text-slate-500 mb-2.5 flex items-center justify-center gap-1.5">
-        <i class="fa-solid fa-camera text-indigo-500"></i> Send payment screenshot after payment:
-      </p>
-      <div class="grid grid-cols-2 gap-2" id="supportContainer">
-        <!-- Rendered via JS -->
+      <!-- QR Code Box -->
+      <div class="mx-auto w-48 h-48 sm:w-52 sm:h-52 rounded-2xl overflow-hidden border-4 border-indigo-100 shadow-md p-2 bg-white flex items-center justify-center select-none relative">
+        <div id="qr"></div>
       </div>
+
+      <!-- UPI ID Pill & Copy Button -->
+      <div class="flex items-center justify-center space-x-2">
+        <div class="bg-slate-100 px-3.5 sm:px-4 py-2 rounded-xl text-slate-800 font-semibold text-xs sm:text-sm select-none border border-slate-200/60 truncate max-w-[280px]">
+          UPI: <span class="text-indigo-600 font-mono" id="upiID">paradox52693@okhdfcbank</span>
+        </div>
+        <button id="copyBtn" onclick="handleCopy()" title="Copy UPI ID" class="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl hover:bg-indigo-700 active:scale-95 transition shadow-sm">
+          <i class="fa-solid fa-copy"></i>
+        </button>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="grid grid-cols-1 gap-2.5 pt-1">
+        <button onclick="handlePay()" 
+          class="w-full bg-indigo-600 text-white font-semibold py-3 rounded-2xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98] transition flex items-center justify-center gap-2 text-sm sm:text-base">
+          <i class="fa-solid fa-bolt"></i> Pay with App
+        </button>
+        <button onclick="handleDownload()" 
+          class="w-full border border-indigo-600 text-indigo-600 font-semibold py-2.5 rounded-2xl hover:bg-indigo-50 active:scale-[0.98] transition flex items-center justify-center gap-2 text-sm sm:text-base">
+          <i class="fa fa-download"></i> Download QR
+        </button>
+      </div>
+
+      <!-- Support / Screenshot Proof Section -->
+      <div class="pt-4 border-t border-slate-100">
+        <p class="text-xs font-semibold text-slate-500 mb-2.5 flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-camera text-indigo-500"></i> Send payment screenshot after payment:
+        </p>
+        <div class="grid grid-cols-2 gap-2" id="supportContainer">
+          <!-- Rendered via JS -->
+        </div>
+      </div>
+
     </div>
 
   </main>

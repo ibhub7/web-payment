@@ -16,8 +16,7 @@
   let currentNote = "Payment";
   let qrcodeInstance = null;
 
-  // Normalization for bot route
-  const rawKey = (Q.get('bot') || '').toLowerCase().replace(/[-_ ]/g, '');
+  // Bot map normalization
   const botMap = {
     blackpanther: 'blackpanther',
     panther: 'blackpanther',
@@ -30,6 +29,8 @@
     sparrow: 'jacksparrow'
   };
 
+  const hasBotParam = Q.has('bot') || Q.has('bots');
+  const rawKey = (Q.get('bot') || Q.get('bots') || '').toLowerCase().replace(/[-_ ]/g, '');
   const resolvedKey = botMap[rawKey] || (C.bots && C.bots[rawKey] ? rawKey : null);
   const bot = resolvedKey ? C.bots[resolvedKey] : null;
 
@@ -39,8 +40,13 @@
   // DOM Elements
   const pageTitle = $('#pageTitle');
   const pageIcon = $('#pageIcon');
+  const pageSubtitle = $('#pageSubtitle');
+  const backBtn = $('#backBtn');
   const botSection = $('#botSection');
+  const botMenuSection = $('#botMenuSection');
+  const botDirectory = $('#botDirectory');
   const homeSection = $('#homeSection');
+  const paymentContent = $('#paymentContent');
   const planList = $('#planList');
   const presetList = $('#presetList');
   const customAmountInput = $('#customAmount');
@@ -51,7 +57,7 @@
   const toastMsg = $('#toastMsg');
   const supportContainer = $('#supportContainer');
 
-  // Set UPI ID text
+  // Set UPI ID
   if (upiID) upiID.textContent = C.upi.id;
 
   // Render Support Telegram Buttons
@@ -146,14 +152,19 @@
     if (wa && wa.HapticFeedback) wa.HapticFeedback.notificationOccurred('success');
   };
 
-  // ROUTE 1: BOT ROUTE
-  if (bot) {
-    document.title = `${bot.name} – Pay`;
-    pageTitle.textContent = bot.name;
-    if (bot.icon) pageIcon.textContent = bot.icon;
-    botSection.classList.remove('hidden');
+  function renderBotView(targetBot, botKey) {
+    document.title = `${targetBot.name} – Pay`;
+    pageTitle.textContent = targetBot.name;
+    pageIcon.textContent = targetBot.icon || '🎬';
+    pageSubtitle.innerHTML = `<i class="fa fa-lock text-slate-400"></i> Protected Payment Page`;
 
-    planList.innerHTML = bot.plans.map((p, i) => `
+    botMenuSection.classList.add('hidden');
+    homeSection.classList.add('hidden');
+    botSection.classList.remove('hidden');
+    paymentContent.classList.remove('hidden');
+    backBtn.classList.remove('hidden');
+
+    planList.innerHTML = targetBot.plans.map((p, i) => `
       <button type="button" class="plan-chip text-left p-3 border border-slate-200 rounded-2xl bg-slate-50 hover:bg-indigo-50/50 hover:border-indigo-300 transition active:scale-[0.98] select-none" data-index="${i}">
         <span class="block text-xs font-semibold text-slate-500 leading-tight mb-1 truncate">${p.label}</span>
         <span class="block text-base font-bold text-indigo-600">₹${p.amount}</span>
@@ -164,23 +175,64 @@
       const btn = e.target.closest('.plan-chip');
       if (!btn) return;
       const index = Number(btn.dataset.index);
-      const selectedPlan = bot.plans[index];
+      const selectedPlan = targetBot.plans[index];
       if (!selectedPlan) return;
 
       planList.querySelectorAll('.plan-chip').forEach(c => c.dataset.active = (c === btn ? 'true' : 'false'));
       if (wa && wa.HapticFeedback) wa.HapticFeedback.selectionChanged();
-      updateQR(selectedPlan.amount, `${bot.name} ${selectedPlan.label}`);
+      updateQR(selectedPlan.amount, `${targetBot.name} ${selectedPlan.label}`);
     };
 
-    // Pre-select 1st plan
-    const firstPlanBtn = planList.querySelector('.plan-chip');
-    if (firstPlanBtn) firstPlanBtn.click();
+    const firstPlan = planList.querySelector('.plan-chip');
+    if (firstPlan) firstPlan.click();
+  }
 
-  } else {
-    // ROUTE 2: HOME ROUTE (Amount selector, no bot list)
+  // ROUTE 1: SPECIFIC BOT (e.g. ?bot=blackpanther)
+  if (bot) {
+    renderBotView(bot, resolvedKey);
+  }
+  // ROUTE 2: BOT SELECTION DIRECTORY (e.g. ?bot or ?bots or ?bot=all)
+  else if (hasBotParam) {
+    document.title = "Select Movie Bot – Pay";
+    pageTitle.textContent = "Select Bot";
+    pageIcon.textContent = "🎬";
+    pageSubtitle.innerHTML = `<i class="fa fa-lock text-slate-400"></i> Protected Payment Page`;
+
+    homeSection.classList.add('hidden');
+    botSection.classList.add('hidden');
+    paymentContent.classList.add('hidden');
+    backBtn.classList.add('hidden');
+    botMenuSection.classList.remove('hidden');
+
+    botDirectory.innerHTML = Object.entries(C.bots).map(([k, b]) => {
+      const minPrice = Math.min(...b.plans.map(p => p.amount));
+      return `
+        <a href="?bot=${encodeURIComponent(k)}${un ? '&un=' + encodeURIComponent(un) : ''}${uid ? '&uid=' + encodeURIComponent(uid) : ''}" 
+          class="flex items-center justify-between p-3.5 border border-slate-200 rounded-2xl bg-slate-50 hover:bg-indigo-50/50 hover:border-indigo-300 transition group select-none text-left">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">${b.icon || '🎬'}</span>
+            <div>
+              <h3 class="font-bold text-slate-800 text-sm group-hover:text-indigo-600 transition">${b.name}</h3>
+              <p class="text-xs text-slate-400 font-medium">Plans starting from ₹${minPrice}</p>
+            </div>
+          </div>
+          <span class="text-xs font-semibold bg-white border border-slate-200 px-2.5 py-1.5 rounded-xl text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition">
+            View Plans <i class="fa-solid fa-arrow-right ml-1"></i>
+          </span>
+        </a>
+      `;
+    }).join('');
+  }
+  // ROUTE 3: HOME ROUTE (Quick Pay with dynamic amount, no bot list)
+  else {
     document.title = `${C.siteName} – Pay`;
     pageTitle.textContent = C.siteName;
+    pageIcon.textContent = "💳";
     homeSection.classList.remove('hidden');
+    botSection.classList.add('hidden');
+    botMenuSection.classList.add('hidden');
+    backBtn.classList.add('hidden');
+    paymentContent.classList.remove('hidden');
 
     const presets = C.amountPresets || [10, 20, 50, 100, 200];
     presetList.innerHTML = presets.map(amt => `
@@ -196,23 +248,22 @@
       presetList.querySelectorAll('.preset-chip').forEach(c => c.dataset.active = (c === btn ? 'true' : 'false'));
       customAmountInput.value = '';
       if (wa && wa.HapticFeedback) wa.HapticFeedback.selectionChanged();
-      updateQR(amt, 'Donation');
+      updateQR(amt, 'Payment');
     };
 
     customAmountInput.oninput = e => {
       presetList.querySelectorAll('.preset-chip').forEach(c => c.dataset.active = 'false');
       const val = Math.floor(Number(e.target.value));
       if (val > 0) {
-        updateQR(val, 'Donation');
+        updateQR(val, 'Payment');
       }
     };
 
-    // Pre-select default amount
     const defaultBtn = presetList.querySelector(`[data-amount="${currentAmount}"]`) || presetList.querySelector('.preset-chip');
     if (defaultBtn) {
       defaultBtn.click();
     } else {
-      updateQR(currentAmount, 'Donation');
+      updateQR(currentAmount, 'Payment');
     }
   }
 })();
