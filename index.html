@@ -1,288 +1,127 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-  <title>Pay</title>
-  <meta name="theme-color" content="#101828">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Protected Payment Page</title>
+  <meta name="theme-color" content="#4f46e5">
+  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
-    :root {
-      --bg: #eef1f6;
-      --ink: #101828;
-      --mut: #5b6478;
-      --card: #ffffff;
-      --line: #dde2ec;
-      --acc: #3b34d6;
-      --acc2: #e8e7fb;
-      --ok: #12805c;
-      --ok-bg: #e6f7f0;
-      --err: #c0392b;
-      --r: 16px;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #0c111b;
-        --ink: #eef1f8;
-        --mut: #98a2b8;
-        --card: #151c2b;
-        --line: #263049;
-        --acc: #8b86ff;
-        --acc2: #1f2142;
-        --ok: #38c795;
-        --ok-bg: #102920;
-        --err: #ff7b6b;
-      }
-    }
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html, body { margin: 0; padding: 0; }
     body {
-      background: var(--bg);
-      color: var(--ink);
-      font: 400 15px/1.5 Inter, system-ui, -apple-system, sans-serif;
-      padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+      font-family: 'Poppins', sans-serif;
+      -webkit-tap-highlight-color: transparent;
     }
-    main {
-      max-width: 450px;
+    .plan-chip[data-active="true"] {
+      border-color: #4f46e5 !important;
+      background-color: #eef2ff !important;
+      box-shadow: 0 0 0 1px #4f46e5;
+    }
+    .preset-chip[data-active="true"] {
+      border-color: #4f46e5 !important;
+      background-color: #4f46e5 !important;
+      color: #ffffff !important;
+    }
+    #qr canvas, #qr img {
       margin: 0 auto;
-      padding: 18px 16px 40px;
+      border-radius: 8px;
     }
-    h1 {
-      font: 800 26px/1.2 'Bricolage Grotesque', Inter, sans-serif;
-      margin: 4px 0;
-      letter-spacing: -0.5px;
-    }
-    h2 {
-      font: 700 16px 'Bricolage Grotesque', Inter, sans-serif;
-      margin: 0 0 10px;
-    }
-    .sub {
-      color: var(--mut);
-      margin: 0 0 16px;
-      font-size: 14px;
-    }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: var(--r);
-      padding: 16px;
-      margin-bottom: 14px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-    }
-    .chips {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 9px;
-    }
-    .chip {
-      border: 1.5px solid var(--line);
-      background: var(--card);
-      color: var(--ink);
-      border-radius: 12px;
-      padding: 12px;
-      text-align: left;
-      font: inherit;
-      cursor: pointer;
-      transition: all 0.15s ease-in-out;
-    }
-    .chip b {
-      display: block;
-      font: 800 20px 'Bricolage Grotesque', sans-serif;
-      color: var(--acc);
-    }
-    .chip span {
-      color: var(--mut);
-      font-size: 13px;
-      display: block;
-      line-height: 1.3;
-      margin-top: 3px;
-    }
-    .chip[aria-pressed="true"] {
-      border-color: var(--acc);
-      background: var(--acc2);
-    }
-    input[type=text], input[type=number] {
-      width: 100%;
-      padding: 13px;
-      border: 1.5px solid var(--line);
-      border-radius: 12px;
-      background: var(--bg);
-      color: var(--ink);
-      font: inherit;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    input:focus {
-      border-color: var(--acc);
-    }
-    .ticket {
-      text-align: center;
-      padding: 20px 16px;
-    }
-    .amt {
-      font: 800 38px 'Bricolage Grotesque', sans-serif;
-      letter-spacing: -1px;
-      color: var(--ink);
-      margin: 4px 0;
-    }
-    #qr {
-      display: inline-block;
-      padding: 10px;
-      background: #ffffff;
-      border-radius: 12px;
-      margin: 8px 0;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-    #qr img, #qr canvas {
-      display: block;
-    }
-    .upi {
-      font: 500 13px ui-monospace, SFMono-Regular, Menlo, monospace;
-      color: var(--mut);
-      word-break: break-all;
-      margin: 4px 0 12px;
-    }
-    .timer {
-      font-size: 13px;
-      font-weight: 600;
-      color: #e67e22;
-      margin-bottom: 8px;
-    }
-    .row {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-    }
-    .btn {
-      flex: 1;
-      display: inline-block;
-      text-align: center;
-      text-decoration: none;
-      border: 0;
-      border-radius: 12px;
-      padding: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      background: var(--acc);
-      color: #ffffff;
-      font-size: 14px;
-      transition: opacity 0.15s;
-    }
-    .btn.alt {
-      background: var(--acc2);
-      color: var(--acc);
-    }
-    .btn.success {
-      background: var(--ok);
-      color: #fff;
-    }
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .note {
-      background: var(--acc2);
-      border-radius: 12px;
-      padding: 10px 12px;
-      font-size: 13px;
-      margin: 12px 0 0;
-      text-align: left;
-      color: var(--ink);
-    }
-    .utr-section {
-      margin-top: 16px;
-      border-top: 1.5px dashed var(--line);
-      padding-top: 16px;
-      text-align: left;
-    }
-    .utr-section label {
-      display: block;
-      font-weight: 600;
-      font-size: 13px;
-      margin-bottom: 6px;
-    }
-    .success-box {
-      text-align: center;
-      padding: 30px 16px;
-    }
-    .success-icon {
-      font-size: 46px;
-      line-height: 1;
-      margin-bottom: 12px;
-    }
-    .bots a {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 0;
-      border-top: 1px solid var(--line);
-      color: var(--ink);
-      text-decoration: none;
-      font-weight: 600;
-    }
-    .bots a:first-of-type { border-top: 0; }
-    .bots a span {
-      color: var(--mut);
-      font-weight: 500;
-      font-size: 13px;
-    }
-    [hidden] { display: none !important; }
   </style>
 </head>
-<body>
-<main id="app">
-  <h1 id="title">Pay</h1>
-  <p class="sub" id="sub">Choose a plan and pay with any UPI app.</p>
 
-  <!-- Plan Selection -->
-  <section class="card" id="pick"></section>
+<body class="bg-gradient-to-br from-indigo-500 via-indigo-600 to-slate-900 min-h-screen flex items-center justify-center p-4">
+  
+  <!-- Floating Toast Notification -->
+  <div id="toast" class="hidden fixed top-5 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white shadow-2xl px-5 py-2.5 rounded-full text-xs sm:text-sm font-medium z-50 transition-all duration-300 flex items-center gap-2 border border-slate-700">
+    <i class="fa-solid fa-circle-check text-green-400"></i>
+    <span id="toastMsg">Notification</span>
+  </div>
 
-  <!-- QR & Payment Card -->
-  <section class="card ticket" id="qrBox" hidden>
-    <div class="sub" style="margin:0 0 4px">Scan or Click to Pay</div>
-    <div class="amt" id="amtTxt"></div>
-    <div id="qr"></div>
-    <div class="upi" id="upiTxt"></div>
-    <div class="timer" id="timerTxt">⏱ Valid for: <span id="countdown">05:00</span></div>
-
-    <div class="row">
-      <a class="btn" id="upiBtn" href="#">Open UPI App</a>
-      <button class="btn alt" id="copyBtn" type="button">Copy UPI ID</button>
+  <!-- Main Payment Card -->
+  <main class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-8 space-y-5 text-center my-auto transition-all">
+    
+    <!-- Header -->
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight">
+        <span id="pageIcon" class="mr-1"></span><span id="pageTitle" class="text-indigo-600">Quick Pay</span>
+      </h1>
+      <p class="text-slate-400 text-xs sm:text-sm mt-1 flex items-center justify-center gap-1.5 font-medium">
+        <i class="fa fa-lock text-slate-400"></i> Protected Payment Page
+      </p>
     </div>
 
-    <!-- Step 2: UTR / Screenshot Confirmation -->
-    <div class="utr-section">
-      <label for="utrInput">Step 2: Enter 12-digit UPI UTR / Ref No.</label>
-      <input type="text" id="utrInput" maxlength="12" placeholder="e.g. 412345678901" inputmode="numeric">
-      <button class="btn success" id="submitBtn" style="width: 100%; margin-top: 8px;" disabled>Submit & Confirm</button>
-      <div class="note">
-        ‼️ <b>Note:</b> After submitting, send payment screenshot for faster activation.
+    <!-- Mode 1: Bot Plan Selector (Visible when on bot route) -->
+    <div id="botSection" class="hidden text-left">
+      <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Select Plan</label>
+      <div id="planList" class="grid grid-cols-2 gap-2.5">
+        <!-- Dynamic Bot Plans -->
       </div>
     </div>
-  </section>
 
-  <!-- Success Notification Box -->
-  <section class="card success-box" id="successBox" hidden>
-    <div class="success-icon">✅</div>
-    <h2>Payment Submitted!</h2>
-    <p class="sub" id="successMsg">Your payment details have been recorded. Click below to send screenshot or return to bot.</p>
-    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
-      <a class="btn" id="proofBtn" href="#" target="_blank">Send Screenshot / Proof</a>
-      <button class="btn alt" id="closeBtn" type="button">Close</button>
+    <!-- Mode 2: Amount Selector (Visible on Home Route) -->
+    <div id="homeSection" class="hidden text-left">
+      <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Select or Enter Amount</label>
+      <div id="presetList" class="grid grid-cols-5 gap-1.5 mb-2.5">
+        <!-- Presets ₹10, ₹20, ₹50, etc. -->
+      </div>
+      <div class="relative">
+        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 font-bold">₹</span>
+        <input type="number" id="customAmount" min="1" max="100000" inputmode="numeric" placeholder="Enter custom amount" 
+          class="w-full pl-8 pr-4 py-2 border border-slate-200 rounded-xl text-slate-800 text-sm font-semibold focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 transition">
+      </div>
     </div>
-  </section>
 
-  <!-- List of bots when visiting bare page -->
-  <section class="card bots" id="botList" hidden>
-    <h2>Our Movie Bots</h2>
-  </section>
-</main>
+    <!-- Dynamic Amount Indicator -->
+    <div class="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-100 text-indigo-700 px-4 py-1.5 rounded-full text-sm font-bold shadow-sm">
+      <span>Amount:</span>
+      <span id="displayAmount" class="text-lg">₹50</span>
+    </div>
 
-<script src="config.js"></script>
-<script src="app.js"></script>
+    <!-- QR Code Box -->
+    <div class="mx-auto w-48 h-48 sm:w-52 sm:h-52 rounded-2xl overflow-hidden border-4 border-indigo-100 shadow-md p-2 bg-white flex items-center justify-center select-none relative">
+      <div id="qr"></div>
+    </div>
+
+    <!-- UPI ID Pill & Copy Button -->
+    <div class="flex items-center justify-center space-x-2">
+      <div class="bg-slate-100 px-3.5 sm:px-4 py-2 rounded-xl text-slate-800 font-semibold text-xs sm:text-sm select-none border border-slate-200/60 truncate max-w-[280px]">
+        UPI: <span class="text-indigo-600 font-mono" id="upiID">paradox52693@okhdfcbank</span>
+      </div>
+      <button id="copyBtn" onclick="handleCopy()" title="Copy UPI ID" class="bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl hover:bg-indigo-700 active:scale-95 transition shadow-sm">
+        <i class="fa-solid fa-copy"></i>
+      </button>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="grid grid-cols-1 gap-2.5 pt-1">
+      <button onclick="handlePay()" 
+        class="w-full bg-indigo-600 text-white font-semibold py-3 rounded-2xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98] transition flex items-center justify-center gap-2 text-sm sm:text-base">
+        <i class="fa-solid fa-bolt"></i> Pay with App
+      </button>
+      <button onclick="handleDownload()" 
+        class="w-full border border-indigo-600 text-indigo-600 font-semibold py-2.5 rounded-2xl hover:bg-indigo-50 active:scale-[0.98] transition flex items-center justify-center gap-2 text-sm sm:text-base">
+        <i class="fa fa-download"></i> Download QR
+      </button>
+    </div>
+
+    <!-- Support / Screenshot Proof Section -->
+    <div class="pt-4 border-t border-slate-100">
+      <p class="text-xs font-semibold text-slate-500 mb-2.5 flex items-center justify-center gap-1.5">
+        <i class="fa-solid fa-camera text-indigo-500"></i> Send payment screenshot after payment:
+      </p>
+      <div class="grid grid-cols-2 gap-2" id="supportContainer">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

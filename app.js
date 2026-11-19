@@ -1,204 +1,218 @@
 (()=>{
-const C = window.CONFIG, $ = s => document.querySelector(s), Q = new URLSearchParams(location.search);
-const wa = window.Telegram && Telegram.WebApp;
+  const C = window.CONFIG;
+  const $ = s => document.querySelector(s);
+  const Q = new URLSearchParams(window.location.search);
+  const wa = window.Telegram && Telegram.WebApp;
 
-if (wa) {
-  try {
-    wa.ready();
-    wa.expand();
-  } catch (_) {}
-}
-
-// Bot key normalization (e.g. 'black_panther' or 'blackpanther' -> 'blackpanther')
-const rawKey = (Q.get('bot') || '').toLowerCase().replace(/[-_ ]/g, '');
-const botMap = {
-  blackpanther: 'blackpanther',
-  panther: 'blackpanther',
-  mpxpanther: 'blackpanther',
-  edith: 'edith',
-  pmmovies: 'pmmovies',
-  pmmovie: 'pmmovies',
-  pmmoviessearch: 'pmmovies',
-  jacksparrow: 'jacksparrow',
-  sparrow: 'jacksparrow'
-};
-
-const resolvedKey = botMap[rawKey] || (C.bots[rawKey] ? rawKey : null);
-const bot = resolvedKey ? C.bots[resolvedKey] : null;
-
-const un = Q.get('un') || (wa && wa.initDataUnsafe && wa.initDataUnsafe.user && wa.initDataUnsafe.user.username) || '';
-const uid = Q.get('uid') || (wa && wa.initDataUnsafe && wa.initDataUnsafe.user && wa.initDataUnsafe.user.id) || '';
-
-const st = { amount: 0, plan: '' };
-let timerInterval = null;
-
-const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-
-document.title = (bot ? bot.name : C.siteName) + ' – Pay';
-$('#title').textContent = bot ? bot.name : C.donate.title;
-$('#sub').textContent = bot 
-  ? (bot.tagline || 'Choose a plan and pay with any UPI app.') 
-  : 'Choose an amount to support or select a movie bot below.';
-
-// Render plan picker or donation picker
-const pick = $('#pick');
-if (bot) {
-  pick.innerHTML = '<h2>Choose Plan</h2><div class="chips">' + 
-    bot.plans.map((p, i) => `<button type="button" class="chip" data-i="${i}" aria-pressed="false"><b>₹${p.amount}</b><span>${esc(p.label)}</span></button>`).join('') + 
-    '</div>';
-
-  pick.onclick = e => {
-    const b = e.target.closest('.chip');
-    if (!b) return;
-    const p = bot.plans[b.dataset.i];
-    pick.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', x === b));
-    if (wa && wa.HapticFeedback) wa.HapticFeedback.selectionChanged();
-    set(p.amount, p.label);
-  };
-
-  if (bot.plans.length === 1) {
-    pick.querySelector('.chip').click();
+  if (wa) {
+    try {
+      wa.ready();
+      wa.expand();
+    } catch (_) {}
   }
-} else {
-  // Bare/Normal link: Donation & list of movie bots
-  pick.innerHTML = '<h2>Support Amount</h2><div class="chips">' + 
-    C.donate.presets.map(a => `<button type="button" class="chip" data-a="${a}" aria-pressed="false"><b>₹${a}</b></button>`).join('') + 
-    '</div><input id="custom" type="number" min="' + C.donate.min + '" inputmode="numeric" placeholder="Other amount (Min ₹' + C.donate.min + ')" style="margin-top:10px">';
 
-  pick.onclick = e => {
-    const b = e.target.closest('.chip');
-    if (!b) return;
-    pick.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', x === b));
-    $('#custom').value = '';
-    if (wa && wa.HapticFeedback) wa.HapticFeedback.selectionChanged();
-    set(+b.dataset.a, 'Donation');
+  // State
+  let currentAmount = C.defaultAmount || 50;
+  let currentNote = "Payment";
+  let qrcodeInstance = null;
+
+  // Normalization for bot route
+  const rawKey = (Q.get('bot') || '').toLowerCase().replace(/[-_ ]/g, '');
+  const botMap = {
+    blackpanther: 'blackpanther',
+    panther: 'blackpanther',
+    mpxpanther: 'blackpanther',
+    edith: 'edith',
+    pmmovies: 'pmmovies',
+    pmmovie: 'pmmovies',
+    pmmoviessearch: 'pmmovies',
+    jacksparrow: 'jacksparrow',
+    sparrow: 'jacksparrow'
   };
 
-  $('#custom').oninput = e => {
-    pick.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', 'false'));
-    const v = Math.floor(+e.target.value);
-    set(v >= C.donate.min && v <= 100000 ? v : 0, 'Donation');
+  const resolvedKey = botMap[rawKey] || (C.bots && C.bots[rawKey] ? rawKey : null);
+  const bot = resolvedKey ? C.bots[resolvedKey] : null;
+
+  const un = Q.get('un') || (wa && wa.initDataUnsafe && wa.initDataUnsafe.user && wa.initDataUnsafe.user.username) || '';
+  const uid = Q.get('uid') || (wa && wa.initDataUnsafe && wa.initDataUnsafe.user && wa.initDataUnsafe.user.id) || '';
+
+  // DOM Elements
+  const pageTitle = $('#pageTitle');
+  const pageIcon = $('#pageIcon');
+  const botSection = $('#botSection');
+  const homeSection = $('#homeSection');
+  const planList = $('#planList');
+  const presetList = $('#presetList');
+  const customAmountInput = $('#customAmount');
+  const displayAmount = $('#displayAmount');
+  const upiID = $('#upiID');
+  const qrBox = $('#qr');
+  const toast = $('#toast');
+  const toastMsg = $('#toastMsg');
+  const supportContainer = $('#supportContainer');
+
+  // Set UPI ID text
+  if (upiID) upiID.textContent = C.upi.id;
+
+  // Render Support Telegram Buttons
+  if (supportContainer && C.supportBots) {
+    supportContainer.innerHTML = C.supportBots.map(b => `
+      <a href="${b.url}" target="_blank" 
+        class="bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 border border-slate-200 text-slate-700 text-xs font-semibold py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm">
+        <i class="fa-brands fa-telegram text-blue-500 text-sm"></i> ${b.name}
+      </a>
+    `).join('');
+  }
+
+  // Toast Function
+  window.showToast = function(msg) {
+    if (!toast) return;
+    toastMsg.textContent = msg;
+    toast.classList.remove('hidden');
+    toast.classList.add('flex');
+    setTimeout(() => {
+      toast.classList.add('hidden');
+      toast.classList.remove('flex');
+    }, 2500);
   };
 
-  // Render Bot List
-  const bl = $('#botList');
-  bl.hidden = false;
-  bl.insertAdjacentHTML('beforeend', Object.entries(C.bots).map(([k, b]) => {
-    const minAmt = Math.min(...b.plans.map(p => p.amount));
-    return `<a href="?bot=${encodeURIComponent(k)}${un ? '&un=' + encodeURIComponent(un) : ''}${uid ? '&uid=' + encodeURIComponent(uid) : ''}">
-      <span>${esc(b.name)}</span>
-      <span>from ₹${minAmt} ➔</span>
-    </a>`;
-  }).join(''));
-}
+  // Generate / Update QR
+  function updateQR(amount, noteText) {
+    currentAmount = Number(amount) || 1;
+    currentNote = noteText || (bot ? bot.name : 'QuickPay');
 
-function set(amount, label) {
-  st.amount = amount;
-  st.plan = label;
-  draw();
-}
+    const userInfo = (un || uid ? ` ${un || uid}` : '').trim();
+    const fullNote = `${currentNote} ${userInfo}`.trim().slice(0, 30);
+    const upiUrl = `upi://pay?pa=${encodeURIComponent(C.upi.id)}&pn=${encodeURIComponent(C.upi.name)}&am=${currentAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(fullNote)}`;
 
-function startTimer(durationSeconds) {
-  clearInterval(timerInterval);
-  let timeLeft = durationSeconds;
-  const el = $('#countdown');
-  timerInterval = setInterval(() => {
-    const m = Math.floor(timeLeft / 60);
-    const s = timeLeft % 60;
-    el.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-    if (--timeLeft < 0) {
-      clearInterval(timerInterval);
-      el.textContent = "Expired. Please re-select plan.";
+    displayAmount.textContent = `₹${currentAmount}`;
+    qrBox.innerHTML = '';
+
+    qrcodeInstance = new QRCode(qrBox, {
+      text: upiUrl,
+      width: 180,
+      height: 180,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+
+    window.currentUpiUrl = upiUrl;
+  }
+
+  // Handle Pay with App
+  window.handlePay = function() {
+    if (!window.currentUpiUrl) return;
+    showToast("Opening UPI app...");
+    if (wa && wa.HapticFeedback) wa.HapticFeedback.impactOccurred('medium');
+    setTimeout(() => {
+      window.location.href = window.currentUpiUrl;
+    }, 400);
+  };
+
+  // Handle Copy UPI
+  window.handleCopy = async function() {
+    try {
+      await navigator.clipboard.writeText(C.upi.id);
+      showToast("UPI ID copied!");
+      if (wa && wa.HapticFeedback) wa.HapticFeedback.notificationOccurred('success');
+    } catch (_) {
+      showToast(C.upi.id);
     }
-  }, 1000);
-}
-
-function draw() {
-  const box = $('#qrBox');
-  if (!st.amount) {
-    box.hidden = true;
-    return;
-  }
-
-  const note = ((bot ? bot.name.replace(/[^a-zA-Z0-9 ]/g, '') : 'Donation') + ' ' + (un || uid || '')).trim().slice(0, 30);
-  const upiUrl = `upi://pay?pa=${encodeURIComponent(C.upi.id)}&pn=${encodeURIComponent(C.upi.name)}&am=${st.amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(note)}`;
-
-  $('#amtTxt').textContent = '₹' + st.amount;
-  $('#upiTxt').textContent = C.upi.id + ' · ' + C.upi.name;
-
-  const q = $('#qr');
-  q.innerHTML = '';
-  new QRCode(q, {
-    text: upiUrl,
-    width: 200,
-    height: 200,
-    correctLevel: QRCode.CorrectLevel.M
-  });
-
-  $('#upiBtn').href = upiUrl;
-  box.hidden = false;
-  startTimer(300); // 5 minutes timer
-  box.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-// Copy UPI ID button
-$('#copyBtn').onclick = async e => {
-  try {
-    await navigator.clipboard.writeText(C.upi.id);
-    e.target.textContent = 'Copied!';
-    if (wa && wa.HapticFeedback) wa.HapticFeedback.notificationOccurred('success');
-  } catch (_) {
-    e.target.textContent = C.upi.id;
-  }
-  setTimeout(() => e.target.textContent = 'Copy UPI ID', 1800);
-};
-
-// UTR Input Validation & Submission
-const utrInput = $('#utrInput');
-const submitBtn = $('#submitBtn');
-
-utrInput.oninput = e => {
-  e.target.value = e.target.value.replace(/\D/g, ''); // Digits only
-  submitBtn.disabled = e.target.value.length < 10;
-};
-
-submitBtn.onclick = () => {
-  const utr = utrInput.value.trim();
-  if (!utr) return;
-
-  const payload = {
-    event: 'PAYMENT_SUBMITTED',
-    botKey: resolvedKey || 'donation',
-    botName: bot ? bot.name : 'Donation',
-    plan: st.plan,
-    amount: st.amount,
-    utr: utr,
-    username: un,
-    userId: uid
   };
 
-  // If inside Telegram WebApp, send data back to bot
-  if (wa && wa.sendData) {
-    if (wa.HapticFeedback) wa.HapticFeedback.notificationOccurred('success');
-    wa.sendData(JSON.stringify(payload));
-  }
+  // Handle Download QR
+  window.handleDownload = function() {
+    const canvas = qrBox.querySelector('canvas');
+    const img = qrBox.querySelector('img');
+    let dataUrl = '';
 
-  // Update Proof button URL
-  const proofUrl = (bot && bot.supportUrl) ? bot.supportUrl : 'https://t.me/mpxpanther_bot';
-  $('#proofBtn').href = proofUrl;
+    if (canvas) {
+      dataUrl = canvas.toDataURL('image/png');
+    } else if (img && img.src) {
+      dataUrl = img.src;
+    }
 
-  // Show Success Box
-  $('#pick').hidden = true;
-  $('#qrBox').hidden = true;
-  $('#successBox').hidden = false;
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-};
+    if (!dataUrl) {
+      showToast("Could not download QR");
+      return;
+    }
 
-$('#closeBtn').onclick = () => {
-  if (wa && wa.close) {
-    wa.close();
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `UPI-QR-₹${currentAmount}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    showToast("QR downloaded!");
+    if (wa && wa.HapticFeedback) wa.HapticFeedback.notificationOccurred('success');
+  };
+
+  // ROUTE 1: BOT ROUTE
+  if (bot) {
+    document.title = `${bot.name} – Pay`;
+    pageTitle.textContent = bot.name;
+    if (bot.icon) pageIcon.textContent = bot.icon;
+    botSection.classList.remove('hidden');
+
+    planList.innerHTML = bot.plans.map((p, i) => `
+      <button type="button" class="plan-chip text-left p-3 border border-slate-200 rounded-2xl bg-slate-50 hover:bg-indigo-50/50 hover:border-indigo-300 transition active:scale-[0.98] select-none" data-index="${i}">
+        <span class="block text-xs font-semibold text-slate-500 leading-tight mb-1 truncate">${p.label}</span>
+        <span class="block text-base font-bold text-indigo-600">₹${p.amount}</span>
+      </button>
+    `).join('');
+
+    planList.onclick = e => {
+      const btn = e.target.closest('.plan-chip');
+      if (!btn) return;
+      const index = Number(btn.dataset.index);
+      const selectedPlan = bot.plans[index];
+      if (!selectedPlan) return;
+
+      planList.querySelectorAll('.plan-chip').forEach(c => c.dataset.active = (c === btn ? 'true' : 'false'));
+      if (wa && wa.HapticFeedback) wa.HapticFeedback.selectionChanged();
+      updateQR(selectedPlan.amount, `${bot.name} ${selectedPlan.label}`);
+    };
+
+    // Pre-select 1st plan
+    const firstPlanBtn = planList.querySelector('.plan-chip');
+    if (firstPlanBtn) firstPlanBtn.click();
+
   } else {
-    location.reload();
+    // ROUTE 2: HOME ROUTE (Amount selector, no bot list)
+    document.title = `${C.siteName} – Pay`;
+    pageTitle.textContent = C.siteName;
+    homeSection.classList.remove('hidden');
+
+    const presets = C.amountPresets || [10, 20, 50, 100, 200];
+    presetList.innerHTML = presets.map(amt => `
+      <button type="button" class="preset-chip py-1.5 px-1 border border-slate-200 rounded-xl bg-slate-50 text-slate-700 text-xs font-bold hover:border-indigo-400 hover:text-indigo-600 transition active:scale-95" data-amount="${amt}">
+        ₹${amt}
+      </button>
+    `).join('');
+
+    presetList.onclick = e => {
+      const btn = e.target.closest('.preset-chip');
+      if (!btn) return;
+      const amt = Number(btn.dataset.amount);
+      presetList.querySelectorAll('.preset-chip').forEach(c => c.dataset.active = (c === btn ? 'true' : 'false'));
+      customAmountInput.value = '';
+      if (wa && wa.HapticFeedback) wa.HapticFeedback.selectionChanged();
+      updateQR(amt, 'Donation');
+    };
+
+    customAmountInput.oninput = e => {
+      presetList.querySelectorAll('.preset-chip').forEach(c => c.dataset.active = 'false');
+      const val = Math.floor(Number(e.target.value));
+      if (val > 0) {
+        updateQR(val, 'Donation');
+      }
+    };
+
+    // Pre-select default amount
+    const defaultBtn = presetList.querySelector(`[data-amount="${currentAmount}"]`) || presetList.querySelector('.preset-chip');
+    if (defaultBtn) {
+      defaultBtn.click();
+    } else {
+      updateQR(currentAmount, 'Donation');
+    }
   }
-};
 })();
